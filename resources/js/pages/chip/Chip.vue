@@ -77,7 +77,7 @@
             <div>
                 <label class="block mb-1 text-sm font-medium">Quantity</label>
                 <InputNumber name="quantity" v-model="initialValues.quantity" locale="en-US" :minFractionDigits="0"
-                    :maxFractionDigits="2" fluid placeholder="Nhập số lượng" />
+                    :maxFractionDigits="2" suffix=" KG" fluid placeholder="Nhập số lượng" />
                 <Message v-if="$form.quantity?.invalid" severity="error" size="small" variant="simple">{{
                     $form.quantity.error?.message }}</Message>
             </div>
@@ -96,7 +96,7 @@
         </div>
         <template #footer>
             <Button label="Hủy" icon="pi pi-times" text @click="showDeleteDialog = false" />
-            <Button label="Đồng ý" icon="pi pi-check" @click="_delete" />
+            <Button label="Đồng ý" :loading="loadingSubmit" icon="pi pi-check" @click="_delete" />
         </template>
     </Dialog>
     <Toast />
@@ -221,6 +221,7 @@ const confirmDelete = (item) => {
 const _delete = async () => {
     if (!itemDelete.value) return;
     try {
+        loadingSubmit.value = true
         await axios.delete(
             `/chips/${itemDelete.value.id}`
         );
@@ -246,6 +247,8 @@ const _delete = async () => {
             detail: "Xóa thất bại",
             life: 3000,
         });
+    } finally {
+        loadingSubmit.value = false;
     }
 };
 
