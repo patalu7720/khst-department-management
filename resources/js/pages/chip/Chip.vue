@@ -1,16 +1,46 @@
 <template>
-    <div class="flex justify-between items-center mb-4">
-        <h2 class="text-xl font-semibold text-gray-700">Danh sách Chip</h2>
-        <Button label="Thêm mới" size="small" icon="pi pi-plus" @click="showInsertDialog" />
+    <Card class="mb-4">
+        <template #content>
+            <div class="grid grid-cols-2 md:grid-cols-4 sm:grid-cols-2 gap-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Material</label>
+                    <InputText v-model="filters.material" @keydown.enter="applySearch" size="small"
+                        placeholder="Nhập material" class="w-full" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Batch</label>
+                    <InputText v-model="filters.batch" @keydown.enter="applySearch" size="small"
+                        placeholder="Nhập batch" class="w-full" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Người tạo</label>
+                    <InputText v-model="filters.created_user" @keydown.enter="applySearch" size="small"
+                        placeholder="Nhập người tạo" class="w-full" />
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Ngày tạo</label>
+                    <DatePicker v-model="filters.created_at_range" size="small" selectionMode="range" showIcon
+                        class="w-full" placeholder="Từ ngày - đến ngày" dateFormat="dd/mm/yy" :manualInput="false" />
+                </div>
+            </div>
+            <div class="flex justify-end mt-4 gap-2">
+                <Button label="Tìm kiếm" size="small" icon="pi pi-search" @click="applySearch" />
+                <Button label="Đặt lại" size="small" icon="pi pi-times" severity="secondary" @click="resetSearch" />
+            </div>
+        </template>
+    </Card>
+
+    <div class="flex mb-4">
+        <Button label="Thêm" size="small" icon="pi pi-plus" @click="showInsertDialog" />
     </div>
 
     <!-- Bảng dữ liệu -->
-    <DataTable v-model:filters="filters" ref="dt" :value="chips" size="small" paginator :rows="15" dataKey="id"
-        filterDisplay="row" :loading="loading" class="p-datatable-sm" scrollable stripedRows showGridlines
-        tableStyle="min-width: 50rem">
+    <DataTable ref="dt" :value="chips" size="small" paginator :rows="15" dataKey="id" :loading="loading"
+        class="p-datatable-sm" scrollable stripedRows showGridlines tableStyle="min-width: 50rem">
         <template #header>
             <div class="text-end">
-                <Button icon="pi pi-external-link" size="small" label="Xuất file" @click="exportCSV($event)" severity="success" raised />
+                <Button icon="pi pi-external-link" size="small" label="Xuất file" @click="exportCSV($event)"
+                    severity="success" raised />
             </div>
         </template>
         <Column field="material" header="Material" style="min-width: 12rem">
@@ -103,6 +133,7 @@
 </template>
 
 <script setup>
+import dayjs from 'dayjs'
 import { ref, onMounted } from 'vue'
 import axios from '@/axios'
 import Button from 'primevue/button'
@@ -112,10 +143,11 @@ import Dialog from 'primevue/dialog'
 import InputText from 'primevue/inputtext'
 import InputNumber from 'primevue/inputnumber'
 import Toast from 'primevue/toast'
+import Card from 'primevue/card'
+import DatePicker from 'primevue/datepicker'
 import { useToast } from 'primevue/usetoast'
 import Message from 'primevue/message'
 import { Form } from '@primevue/forms';
-import { FilterMatchMode } from '@primevue/core/api';
 
 const chips = ref([])
 const loading = ref(false)
@@ -129,11 +161,14 @@ const dt = ref();
 const user = JSON.parse(localStorage.getItem('user') || '{}')
 
 const filters = ref({
-    material: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    batch: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    quantity: { value: null, matchMode: FilterMatchMode.CONTAINS },
-    created_user: { value: null, matchMode: FilterMatchMode.CONTAINS },
-});
+    material: '',
+    batch: '',
+    created_user: '',
+    created_at_range: [
+        new Date(dayjs().startOf('month').format('YYYY-MM-DD')),
+        new Date(dayjs().endOf('day').format('YYYY-MM-DD'))
+    ]
+})
 
 const initialValues = ref({
     id: null,
@@ -144,14 +179,46 @@ const initialValues = ref({
 
 const fetchChips = async () => {
     loading.value = true
+
     try {
-        const res = await axios.get('/chips')
+        const params = {
+            material: filters.value.material,
+            batch: filters.value.batch,
+            created_user: filters.value.created_user,
+        }
+
+        if (filters.value.created_at_range?.length === 2) {
+            params.from_date = dayjs(filters.value.created_at_range[0]).format('YYYY-MM-DD')
+            if (filters.value.created_at_range[1] === null)
+                params.to_date = dayjs(filters.value.created_at_range[0]).format('YYYY-MM-DD')
+            else
+                params.to_date = dayjs(filters.value.created_at_range[1]).format('YYYY-MM-DD')
+        }
+
+        const res = await axios.get('/chips', { params })
         chips.value = res.data
     } catch (err) {
-        toast.add({ severity: 'error', summary: 'Lỗi', detail: 'Không tải được dữ liệu', life: 3000 })
+        toast.add({ severity: 'error', summary: 'Lỗi tải dữ liệu', life: 3000 })
     } finally {
         loading.value = false
     }
+}
+
+function applySearch() {
+    fetchChips()
+}
+
+function resetSearch() {
+    filters.value = {
+        material: '',
+        batch: '',
+        created_user: '',
+        created_at_range: [
+            new Date(dayjs().startOf('month').format('YYYY-MM-DD')),
+            new Date(dayjs().endOf('day').format('YYYY-MM-DD'))
+        ]
+    }
+    applySearch()
 }
 
 function showInsertDialog() {
